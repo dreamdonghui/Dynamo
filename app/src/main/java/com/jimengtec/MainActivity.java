@@ -3,17 +3,21 @@ package com.jimengtec;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
 
 import android.content.Intent;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,68 +59,11 @@ public class MainActivity extends AppCompatActivity {
         buttonConect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-               try
-                {
+
                     findBT();
                     openBT();
-                }
-               catch (IOException  ex) { }
             }
         });
-
-        // Send and close example. Not used at this moment.
-
-        ////Send Button
-
-        //sendButton.setOnClickListener(new View.OnClickListener()
-
-        //{
-
-        //public void onClick(View v)
-
-        //{
-
-        //try
-
-        //{
-
-        //sendData();
-
-        //}
-
-        //catch (IOException ex) { }
-
-        //}
-
-        //});
-
-        //
-
-        ////Close button
-
-        //closeButton.setOnClickListener(new View.OnClickListener()
-
-        //{
-
-        //public void onClick(View v)
-
-        //{
-
-        //try
-
-        //{
-
-        //closeBT();
-
-        //}
-
-        //catch (IOException ex) { }
-
-        //}
-
-        //});
-
-        //
 
     }
 
@@ -144,84 +91,50 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    void openBT() throws IOException{
-        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); //JDY-16 / WXCLJ-7 //       UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");//JDY-30 0000ffe1-0000-1000-8000-00805f9b34fb
-        mSocket = mDevice.createRfcommSocketToServiceRecord(uuid);
-        try{
-            mSocket.connect();
-        }catch (IOException e){
-            e.printStackTrace();
-        }
-
-
-        mOutputStream = mSocket.getOutputStream();
-        mInputStream = mSocket.getInputStream();
-        beginListenForDate();
-
-        textViewMessage.setText("设备链路已建立。");
-    }
-
-    void beginListenForDate(){
-        final Handler handler = new Handler();
-        final byte delimiter = 10; //ASCII for new line;
-
-        stopworker = false;
-        readBufferPosition = 0;
-        readBuffer = new byte[1024];
-
-        workerThread = new Thread(new Runnable() {
+    void openBT() {
+//选择bluetoothDevice后配置回调函数
+        bluetoothGatt=mDevice.connectGatt(MainActivity.this, false, new BluetoothGattCallback() {
             @Override
-            public void run() {
-                while (!Thread.currentThread().isInterrupted()&& !stopworker){
-                    try {
-                        int bytesAvailable = mInputStream.available();
-                        if (bytesAvailable>0){
-                            byte[] packetBytes = new byte[bytesAvailable];
-                            mInputStream.read(packetBytes);
-                            for (int i=0; i<bytesAvailable;i++){
-                                byte b = packetBytes[i];
-                                if (b == delimiter){
-                                    byte[] encodeBytes = new byte[readBufferPosition];
-                                    System.arraycopy(readBuffer,0,encodeBytes,0,encodeBytes.length);
-                                    final String data = new String(encodeBytes,"US-ASCII");
-                                    readBufferPosition = 0;
-                                    handler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                           textViewDynamometerDisplay.setText(data);
-                                           textViewDynamometerDisplay.setText("配置列表77pou77连接。");
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState){
+                super.onConnectionStateChange(gatt, status, newState);
+                if (newState == BluetoothProfile.STATE_CONNECTED) {//状态变为 已连接
+ //                   Log.e(TAG, "成功建立连接");
+                    textViewMessage.setText("成功建立连接.");
 
-                                        }
-                                    });
-                                }
-                                else {
-                                    readBuffer[readBufferPosition++] = b;
-                                }
-                            }
-                        }
-                    }
-                    catch (IOException ex){
-                        stopworker = true;
-                    }
                 }
+                gatt.discoverServices();//连接成功，开始搜索服务，一定要调用此方法，否则获取不到服务
+                if (newState == BluetoothGatt.STATE_DISCONNECTED) { //状态变为 未连接
+                    Toast.makeText(MainActivity.this, "连接断开", Toast.LENGTH_LONG).show();
+                }
+                return;
             }
-        });
-        workerThread.start();
+            public void onServicesDiscovered(BluetoothGatt gatt, final int status) {
+                //用此函数接收数据
+                super.onServicesDiscovered(gatt, status);
+                String service_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";//已知服务
+                String characteristic_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";//已知特征
+                bluetoothGattService = bluetoothGatt.getService(UUID.fromString(service_UUID));//通过UUID找到服务
+                bluetoothGattCharacteristic = bluetoothGattService.getCharacteristic(UUID.fromString(characteristic_UUID));//找到服务后在通过UUID找到特征
+                if (bluetoothGattCharacteristic != null) {
+                    gatt.setCharacteristicNotification(bluetoothGattCharacteristic, true);//启用onCharacteristicChanged(），用于接收数据
+                    //Toast.makeText(MainActivity.this, "连接成功", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "发现服务失败", Toast.LENGTH_LONG).show();
+                    return;
+                }
 
+            }
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+                super.onCharacteristicChanged(gatt, characteristic);
+            }
+            @Override
+            public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+                super.onCharacteristicRead(gatt, characteristic, status);
+                textViewMessage.setText("gg " + characteristic.getValue()[0]);
+            }
+
+    });
     }
-/***************************************************************
-    void sendData() throws  IOException{
-        String msg = myTextbox.getText().toString();
-        msg += "\n";
-        mOutputStream.write(msg.getBytes());
-        myLabel.setText("Data Sent");
-    }
-    void closeBT() throws IOException{
-        stopWorker = true;
-        mOutputStream.close();
-        mInputStream.close();
-        mSocket.close();
-        myLabel.setText("Bluetooth Closed");
-    }
-*************************************************************/
+
 }
