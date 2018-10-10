@@ -2,7 +2,11 @@ package com.jimengtec;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothSocket;
+
 import android.content.Intent;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -10,7 +14,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,6 +23,9 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
+    private BluetoothGattService bluetoothGattService;
+    private BluetoothGattCharacteristic bluetoothGattCharacteristic;
+    private BluetoothGatt bluetoothGatt;
     BluetoothAdapter mBluetoothAdapter;
     BluetoothSocket mSocket;
     BluetoothDevice mDevice;
@@ -28,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     Thread          workerThread;
     byte[]          readBuffer;
     int             readBufferPosition;
-    int             counter;
+    //int             counter;
     volatile    boolean stopworker;
     TextView    textViewMessage;
     TextView    textViewDynamometerDisplay;
@@ -39,52 +45,78 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button buttonConect =   (Button)findViewById(R.id.buttonConect);
-        Button buttonZero   =   (Button)findViewById(R.id.buttonZero);
-        textViewMessage = (TextView)findViewById(R.id.textViewMessage);
-        textViewDynamometerDisplay = (TextView)findViewById(R.id.textViewDynamometerDisplay);
+        Button buttonConect = findViewById(R.id.buttonConect);
+        Button buttonZero   = findViewById(R.id.buttonZero);
+        textViewMessage = findViewById(R.id.textViewMessage);
+        textViewDynamometerDisplay = findViewById(R.id.textViewDynamometerDisplay);
 
 
         //Connect Button
         buttonConect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                try
+               try
                 {
                     findBT();
                     openBT();
                 }
-                catch (IOException  ex) { }
+               catch (IOException  ex) { }
             }
         });
 
-        /********Send and close example. Not used at this moment.
-        //Send Button
-        sendButton.setOnClickListener(new View.OnClickListener()
-        {
-            public void onClick(View v)
-            {
-                try
-                {
-                    sendData();
-                }
-                catch (IOException ex) { }
-            }
-        });
+        // Send and close example. Not used at this moment.
 
-         //Close button
-         closeButton.setOnClickListener(new View.OnClickListener()
-         {
-         public void onClick(View v)
-         {
-         try
-         {
-         closeBT();
-         }
-         catch (IOException ex) { }
-         }
-         });
-     *****************************************************/
+        ////Send Button
+
+        //sendButton.setOnClickListener(new View.OnClickListener()
+
+        //{
+
+        //public void onClick(View v)
+
+        //{
+
+        //try
+
+        //{
+
+        //sendData();
+
+        //}
+
+        //catch (IOException ex) { }
+
+        //}
+
+        //});
+
+        //
+
+        ////Close button
+
+        //closeButton.setOnClickListener(new View.OnClickListener()
+
+        //{
+
+        //public void onClick(View v)
+
+        //{
+
+        //try
+
+        //{
+
+        //closeBT();
+
+        //}
+
+        //catch (IOException ex) { }
+
+        //}
+
+        //});
+
+        //
 
     }
 
@@ -103,9 +135,9 @@ public class MainActivity extends AppCompatActivity {
         textViewMessage.setText("设备未配置。");
         if(pairedDevices.size() > 0) {
             for (BluetoothDevice device : pairedDevices){
-                if (device.getName().equals("JDY-30")){
+                if (device.getName().equals("JDY-16")){   //JDY-30  WXCLJ-7
                     mDevice = device;
-                    textViewMessage.setText("配置列表中发现设备,但设备并未连接。");
+                    textViewMessage.setText("配置列表中发现设备.");
                     break;
                 }
             }
@@ -113,9 +145,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void openBT() throws IOException{
-        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+        UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); //JDY-16 / WXCLJ-7 //       UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");//JDY-30 0000ffe1-0000-1000-8000-00805f9b34fb
         mSocket = mDevice.createRfcommSocketToServiceRecord(uuid);
-        mSocket.connect();
+        try{
+            mSocket.connect();
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+
+
         mOutputStream = mSocket.getOutputStream();
         mInputStream = mSocket.getInputStream();
         beginListenForDate();
@@ -151,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void run() {
                                            textViewDynamometerDisplay.setText(data);
-//                                            textViewDynamometerDisplay.setText("配置列表77pou77连接。");
+                                           textViewDynamometerDisplay.setText("配置列表77pou77连接。");
 
                                         }
                                     });
